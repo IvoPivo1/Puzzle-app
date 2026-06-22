@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   Alert,
@@ -25,6 +25,12 @@ import {
   saveStoredResult,
   updateStreak,
 } from './utils/dailyPuzzle'
+import {
+  fetchLeaderboard,
+  isLeaderboardConfigured,
+  submitLeaderboardScore,
+} from './utils/leaderboard'
+import type { LeaderboardEntry } from './types'
 
 const MAX_ATTEMPTS = 6
 
@@ -168,11 +174,19 @@ function ResultScreen({
   result,
   onShare,
   shareStatus,
+  playerName,
+  leaderboardStatus,
+  onNameChange,
+  onSubmitScore,
 }: {
   puzzleNumber: number
   result: DailyResult
   onShare: () => void
   shareStatus: string
+  playerName: string
+  leaderboardStatus: string
+  onNameChange: (name: string) => void
+  onSubmitScore: (event: FormEvent<HTMLFormElement>) => void
 }) {
   const solvedText = result.solved
     ? `Solved in ${result.attempts}/${MAX_ATTEMPTS}`
@@ -197,6 +211,24 @@ function ResultScreen({
           <Button fullWidth variant="contained" color="secondary" onClick={onShare}>
             Share result
           </Button>
+          <Box component="form" className="name-form" onSubmit={onSubmitScore}>
+            <TextField
+              fullWidth
+              label="Name for leaderboard"
+              onChange={(event) => onNameChange(event.target.value)}
+              placeholder="Your name"
+              slotProps={{ htmlInput: { maxLength: 24 } }}
+              value={playerName}
+            />
+            <Button fullWidth variant="outlined" color="primary" type="submit">
+              Add to leaderboard
+            </Button>
+          </Box>
+          {leaderboardStatus && (
+            <Alert severity={leaderboardStatus.includes('saved') ? 'success' : 'info'} sx={{ mt: 2 }}>
+              {leaderboardStatus}
+            </Alert>
+          )}
           {shareStatus && (
             <Alert severity="info" sx={{ mt: 2, textAlign: 'left', whiteSpace: 'pre-line' }}>
               {shareStatus}
@@ -205,6 +237,56 @@ function ResultScreen({
         </CardContent>
       </Card>
     </motion.div>
+  )
+}
+
+function Leaderboard({
+  entries,
+  isLoading,
+}: {
+  entries: LeaderboardEntry[]
+  isLoading: boolean
+}) {
+  return (
+    <Card component="section">
+      <CardContent>
+        <Stack
+          direction="row"
+          sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Typography component="h2" variant="h2" sx={{ fontSize: '1.25rem' }}>
+            Today&apos;s leaderboard
+          </Typography>
+          <Chip label={isLeaderboardConfigured ? 'Live' : 'Setup needed'} color="primary" size="small" />
+        </Stack>
+
+        {!isLeaderboardConfigured ? (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Add your Supabase keys in `.env.local` and Vercel to enable online scores.
+          </Alert>
+        ) : isLoading ? (
+          <Typography color="text.secondary" sx={{ mt: 2 }}>
+            Loading scores...
+          </Typography>
+        ) : entries.length === 0 ? (
+          <Typography color="text.secondary" sx={{ mt: 2 }}>
+            No scores yet today. First name on the board gets bragging rights.
+          </Typography>
+        ) : (
+          <Stack spacing={1} sx={{ mt: 2 }}>
+            {entries.map((entry, index) => (
+              <article className="leader-row" key={entry.id}>
+                <span className="leader-rank">#{index + 1}</span>
+                <span className="leader-name">{entry.player_name}</span>
+                <span className={entry.solved ? 'leader-score solved' : 'leader-score'}>
+                  {entry.solved ? `${entry.attempts}/6` : 'X/6'}
+                </span>
+              </article>
+            ))}
+          </Stack>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -219,9 +301,26 @@ function App() {
   const [guess, setGuess] = useState('')
   const [error, setError] = useState('')
   const [shareStatus, setShareStatus] = useState('')
+  const [playerName, setPlayerName] = useState('')
+  const [leaderboardStatus, setLeaderboardStatus] = useState('')
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(
+    isLeaderboardConfigured,
+  )
 
   const isFinished = Boolean(storedResult)
   const attemptsLeft = MAX_ATTEMPTS - guesses.length
+
+  useEffect(() => {
+    if (!isLeaderboardConfigured) {
+      return
+    }
+
+    fetchLeaderboard(puzzle.dateKey)
+      .then(setLeaderboard)
+      .catch((error: Error) => setLeaderboardStatus(error.message))
+      .finally(() => setIsLoadingLeaderboard(false))
+  }, [puzzle.dateKey])
 
   function finishGame(nextGuesses: GuessRow[], solved: boolean) {
     const result: DailyResult = {
@@ -285,6 +384,28 @@ function App() {
     }
   }
 
+  async function submitScore(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setLeaderboardStatus('')
+
+    if (!storedResult) {
+      return
+    }
+
+    if (!playerName.trim()) {
+      setLeaderboardStatus('Add a name before submitting your score.')
+      return
+    }
+
+    try {
+      await submitLeaderboardScore(playerName, puzzle.puzzleNumber, storedResult)
+      setLeaderboardStatus('Score saved to the leaderboard.')
+      setLeaderboard(await fetchLeaderboard(puzzle.dateKey))
+    } catch (error) {
+      setLeaderboardStatus(error instanceof Error ? error.message : 'Could not save score.')
+    }
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -330,7 +451,11 @@ function App() {
         <Stack spacing={1.5}>
           {storedResult ? (
             <ResultScreen
+              leaderboardStatus={leaderboardStatus}
+              onNameChange={setPlayerName}
               onShare={shareResult}
+              onSubmitScore={submitScore}
+              playerName={playerName}
               puzzleNumber={puzzle.puzzleNumber}
               result={storedResult}
               shareStatus={shareStatus}
@@ -372,6 +497,7 @@ function App() {
           )}
 
           <GuessHistory guesses={guesses} />
+          <Leaderboard entries={leaderboard} isLoading={isLoadingLeaderboard} />
         </Stack>
       </Container>
     </ThemeProvider>

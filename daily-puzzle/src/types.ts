@@ -25,3 +25,13 @@ export type DailyPuzzle = {
   dateKey: string
   puzzleNumber: number
 }
+
+export type LeaderboardEntry = {
+  id: number
+  player_name: string
+  puzzle_date: string
+  puzzle_number: number
+  attempts: number
+  solved: boolean
+  created_at: string
+}

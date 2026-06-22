@@ -123,6 +123,12 @@ body {
   gap: 12px;
 }
 
+.name-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
 .guess-form input {
   height: 62px;
   color: #ffffff;
@@ -194,6 +200,40 @@ body {
 
 .lose {
   border-color: rgba(239, 68, 68, 0.42);
+}
+
+.leader-row {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.leader-rank,
+.leader-score {
+  color: #27f5c7;
+  font-weight: 950;
+}
+
+.leader-name {
+  overflow: hidden;
+  color: #ffffff;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leader-score {
+  color: #aeb9cc;
+}
+
+.leader-score.solved {
+  color: #ffbf47;
 }
 
 @keyframes codeDrift {
