@@ -1,6 +1,6 @@
 # Daily Code Puzzle
 
-A mobile-first daily puzzle game built with React, TypeScript, CSS, HTML, and Vite. Players get one hidden 4-digit code per day and have six attempts to crack it.
+A mobile-first daily puzzle game built with React, TypeScript, MUI, Framer Motion, CSS, HTML, and Vite. Players get one hidden 4-digit code per day and have six attempts to crack it.
 
 ## Features
 
@@ -13,7 +13,8 @@ A mobile-first daily puzzle game built with React, TypeScript, CSS, HTML, and Vi
 - Win streak tracking with `localStorage`
 - Share button that copies a compact result grid
 - Invalid guess and duplicate guess prevention
-- Mobile-first layout with large controls and smooth animations
+- Mobile-first MUI layout with large controls
+- Animated background and feedback tile motion with Framer Motion
 
 ## How The Daily Puzzle Works
 
