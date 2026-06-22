@@ -12,7 +12,7 @@ const supabase = isLeaderboardConfigured
   ? createClient(supabaseUrl as string, supabaseKey as string)
   : null
 
-export async function fetchLeaderboard(dateKey: string) {
+export async function fetchLeaderboard(puzzleNumber: number) {
   if (!supabase) {
     return []
   }
@@ -20,7 +20,7 @@ export async function fetchLeaderboard(dateKey: string) {
   const { data, error } = await supabase
     .from('leaderboard')
     .select('*')
-    .eq('puzzle_date', dateKey)
+    .eq('puzzle_number', puzzleNumber)
     .order('solved', { ascending: false })
     .order('attempts', { ascending: true })
     .order('created_at', { ascending: true })

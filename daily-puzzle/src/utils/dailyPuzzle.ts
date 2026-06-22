@@ -3,6 +3,7 @@ import type { DailyPuzzle, DailyResult, FeedbackMark, StreakState } from '../typ
 const RESULT_PREFIX = 'daily-code-result:'
 const STREAK_KEY = 'daily-code-streak'
 const START_DATE = new Date('2026-01-01T00:00:00')
+const PUZZLE_RESET_VERSION = 2
 
 function getDateKey(date = new Date()) {
   const year = date.getFullYear()
@@ -27,7 +28,7 @@ function createSeededRandom(seed: string) {
   let state = hashSeed(seed)
 
   // Mulberry-style deterministic random generator.
-  // The same date string always creates the same number sequence.
+  // The same date/version string always creates the same number sequence.
   return () => {
     state += 0x6d2b79f5
     let value = state
@@ -46,13 +47,14 @@ function daysBetween(from: Date, to: Date) {
 
 export function getDailyPuzzle(date = new Date()): DailyPuzzle {
   const dateKey = getDateKey(date)
-  const random = createSeededRandom(dateKey)
+  const random = createSeededRandom(`${dateKey}:${PUZZLE_RESET_VERSION}`)
   const code = Array.from({ length: 4 }, () => Math.floor(random() * 10)).join('')
+  const basePuzzleNumber = Math.max(1, daysBetween(START_DATE, date) + 1)
 
   return {
     code,
     dateKey,
-    puzzleNumber: Math.max(1, daysBetween(START_DATE, date) + 1),
+    puzzleNumber: basePuzzleNumber + (PUZZLE_RESET_VERSION - 1) * 1000,
   }
 }
 
@@ -87,23 +89,27 @@ export function createGuessFeedback(
 }
 
 export function loadStoredResult(dateKey: string): DailyResult | null {
-  const rawResult = localStorage.getItem(`${RESULT_PREFIX}${dateKey}`)
+  const storageKey = `${RESULT_PREFIX}${dateKey}:v${PUZZLE_RESET_VERSION}`
+  const rawResult = localStorage.getItem(storageKey)
 
   if (!rawResult) {
     return null
   }
 
   try {
-    // localStorage is the daily lock. If today's result exists, replay is blocked.
+    // localStorage is the daily lock. Versioning this key lets us reset a day.
     return JSON.parse(rawResult) as DailyResult
   } catch {
-    localStorage.removeItem(`${RESULT_PREFIX}${dateKey}`)
+    localStorage.removeItem(storageKey)
     return null
   }
 }
 
 export function saveStoredResult(result: DailyResult) {
-  localStorage.setItem(`${RESULT_PREFIX}${result.dateKey}`, JSON.stringify(result))
+  localStorage.setItem(
+    `${RESULT_PREFIX}${result.dateKey}:v${PUZZLE_RESET_VERSION}`,
+    JSON.stringify(result),
+  )
 }
 
 function getPreviousDateKey(dateKey: string) {

@@ -316,11 +316,11 @@ function App() {
       return
     }
 
-    fetchLeaderboard(puzzle.dateKey)
+    fetchLeaderboard(puzzle.puzzleNumber)
       .then(setLeaderboard)
       .catch((error: Error) => setLeaderboardStatus(error.message))
       .finally(() => setIsLoadingLeaderboard(false))
-  }, [puzzle.dateKey])
+  }, [puzzle.puzzleNumber])
 
   function finishGame(nextGuesses: GuessRow[], solved: boolean) {
     const result: DailyResult = {
@@ -400,7 +400,7 @@ function App() {
     try {
       await submitLeaderboardScore(playerName, puzzle.puzzleNumber, storedResult)
       setLeaderboardStatus('Score saved to the leaderboard.')
-      setLeaderboard(await fetchLeaderboard(puzzle.dateKey))
+      setLeaderboard(await fetchLeaderboard(puzzle.puzzleNumber))
     } catch (error) {
       setLeaderboardStatus(error instanceof Error ? error.message : 'Could not save score.')
     }
