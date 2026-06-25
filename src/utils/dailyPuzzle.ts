@@ -3,7 +3,8 @@ import type { DailyPuzzle, DailyResult, FeedbackMark, StreakState } from '../typ
 const RESULT_PREFIX = 'daily-code-result:'
 const STREAK_KEY = 'daily-code-streak'
 const START_DATE = new Date('2026-01-01T00:00:00')
-const PUZZLE_RESET_VERSION = 2
+
+export const PUZZLE_RESET_VERSION = 2
 
 function getDateKey(date = new Date()) {
   const year = date.getFullYear()
@@ -27,8 +28,7 @@ function hashSeed(seed: string) {
 function createSeededRandom(seed: string) {
   let state = hashSeed(seed)
 
-  // Mulberry-style deterministic random generator.
-  // The same date/version string always creates the same number sequence.
+  // Deterministic PRNG: the same date/version seed creates the same code.
   return () => {
     state += 0x6d2b79f5
     let value = state
@@ -147,14 +147,14 @@ export function updateStreak(dateKey: string, solved: boolean): StreakState {
 
 function markToEmoji(mark: FeedbackMark) {
   if (mark === 'correct') {
-    return '🟩'
+    return '\uD83D\uDFE9'
   }
 
   if (mark === 'misplaced') {
-    return '🟨'
+    return '\uD83D\uDFE8'
   }
 
-  return '⬛'
+  return '\u2B1B'
 }
 
 export function buildShareText(puzzleNumber: number, result: DailyResult) {

@@ -1,29 +1,34 @@
 # Daily Code Puzzle
 
-A mobile-first daily puzzle game built with React, TypeScript, MUI, Framer Motion, CSS, HTML, and Vite. Players get one hidden 4-digit code per day and have six attempts to crack it.
+A mobile-first daily code puzzle built with React, TypeScript, MUI, Framer Motion, Supabase, CSS, HTML, and Vite. Players get one shared hidden 4-digit code per day and have six attempts to crack it.
 
 ## Features
 
-- One shared daily puzzle for all players
-- 4-digit code guessing with position-based feedback
-- Six attempts per day
-- Replay lock using `localStorage`
-- Restores today's result after refresh
-- Win and lose screens
-- Win streak tracking with `localStorage`
-- Share button that copies a compact result grid
-- Invalid guess and duplicate guess prevention
-- Mobile-first MUI layout with large controls
-- Animated background and feedback tile motion with Framer Motion
-- Supabase-powered daily leaderboard
+- One shared daily puzzle generated from the date
+- Six attempts per puzzle
+- Replay lock with `localStorage`
+- Supabase daily leaderboard
+- Browser-generated `player_id` for cleaner score tracking
+- One leaderboard submit per browser per puzzle
+- On-screen mobile number keypad
+- Countdown to the next daily puzzle
+- Win/loss result screens
+- Shareable result grid
+- Local player stats modal with win rate, streaks, and guess distribution
+- Hard mode that enforces revealed clues
+- Color-assist symbols for feedback tiles
+- Animated background, feedback flips, invalid-guess shake, and win confetti
+- Daily theme colors based on the puzzle number
+- How-to-play dialog
+- SEO and social preview meta tags
 
 ## How The Daily Puzzle Works
 
-The app creates a date key from the player's current local date, such as `2026-06-22`.
+The app creates a date key from the player's local date, such as `2026-06-25`.
 
-That date key is passed into a small deterministic seeded random generator in `src/utils/dailyPuzzle.ts`. Because the seed is always the same for the same date, every player gets the same 4-digit code on that day. When the date changes, the seed changes, so the generated code changes automatically.
+That date key, plus the internal puzzle reset version, is passed into a deterministic seeded random generator in `src/utils/dailyPuzzle.ts`. Because the seed is stable, every player gets the same 4-digit code for the same puzzle. When the date changes, the seed changes and a new puzzle appears automatically.
 
-After the player wins or uses all six attempts, the full daily result is saved in `localStorage` under a key that includes the date. If a result already exists for today, the app shows that result and blocks replay.
+After the player wins or uses all six attempts, the full result is saved in `localStorage`. If a result already exists for the current puzzle, the app restores that result and blocks replay.
 
 ## Supabase Leaderboard
 
@@ -33,11 +38,13 @@ Create a free Supabase project, then run this SQL in the Supabase SQL editor:
 create table leaderboard (
   id bigint primary key generated always as identity,
   player_name text not null,
+  player_id text not null,
   puzzle_date date not null,
   puzzle_number integer not null,
   attempts integer not null check (attempts between 1 and 6),
   solved boolean not null,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  unique (player_id, puzzle_number)
 );
 
 alter table leaderboard enable row level security;
@@ -52,8 +59,26 @@ on leaderboard for insert
 to anon
 with check (
   char_length(player_name) between 1 and 24
+  and char_length(player_id) between 16 and 80
   and attempts between 1 and 6
 );
+```
+
+If you already created the old table, run this migration instead:
+
+```sql
+alter table leaderboard
+add column if not exists player_id text;
+
+update leaderboard
+set player_id = 'legacy-' || id
+where player_id is null;
+
+alter table leaderboard
+alter column player_id set not null;
+
+create unique index if not exists leaderboard_player_puzzle_unique
+on leaderboard (player_id, puzzle_number);
 ```
 
 Create `.env.local` from `.env.example`:
@@ -82,8 +107,7 @@ npm run build
 
 ## Future Improvements
 
-- Add an on-screen number keypad
-- Add hard mode with no repeated digits
-- Add a stats modal with total games and win rate
-- Add color-blind friendly feedback symbols
-- Add a countdown timer until the next puzzle
+- User accounts for cross-device stats
+- Server-side score validation
+- Global all-time leaderboard
+- More puzzle types and weekly challenges

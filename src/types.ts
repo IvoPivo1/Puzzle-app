@@ -11,6 +11,16 @@ export type StreakState = {
   lastPlayedDate: string
 }
 
+export type PlayerStats = {
+  played: number
+  wins: number
+  currentStreak: number
+  bestStreak: number
+  totalAttempts: number
+  guessDistribution: Record<number, number>
+  lastCompletedPuzzle: number | null
+}
+
 export type DailyResult = {
   dateKey: string
   code: string
@@ -29,6 +39,7 @@ export type DailyPuzzle = {
 export type LeaderboardEntry = {
   id: number
   player_name: string
+  player_id: string | null
   puzzle_date: string
   puzzle_number: number
   attempts: number

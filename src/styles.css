@@ -13,6 +13,10 @@ body {
   overflow-x: hidden;
 }
 
+.theme-shell {
+  min-height: 100vh;
+}
+
 .app {
   position: relative;
   z-index: 1;
@@ -25,8 +29,8 @@ body {
   inset: 0;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(7, 10, 19, 0.5), rgba(7, 10, 19, 0.92)),
-    radial-gradient(circle at top, #15213b 0, #070a13 54%);
+    linear-gradient(180deg, rgba(7, 10, 19, 0.48), rgba(7, 10, 19, 0.92)),
+    radial-gradient(circle at top, var(--theme-deep, #15213b) 0, #070a13 54%);
 }
 
 .motion-bg::after {
@@ -53,13 +57,11 @@ body {
 .aurora-one {
   top: -90px;
   left: -80px;
-  background: #27f5c7;
 }
 
 .aurora-two {
   right: -120px;
   bottom: 80px;
-  background: #ffbf47;
 }
 
 .code-rain {
@@ -86,13 +88,13 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: end;
-  padding: 30px 24px;
+  padding: 24px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background:
     linear-gradient(145deg, rgba(11, 18, 32, 0.92), rgba(16, 24, 39, 0.62)),
-    radial-gradient(circle at 20% 10%, rgba(39, 245, 199, 0.28), transparent 38%),
-    radial-gradient(circle at 90% 85%, rgba(255, 191, 71, 0.22), transparent 32%);
+    radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--theme-primary, #27f5c7) 30%, transparent), transparent 38%),
+    radial-gradient(circle at 90% 85%, color-mix(in srgb, var(--theme-secondary, #ffbf47) 24%, transparent), transparent 32%);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
   backdrop-filter: blur(18px);
 }
@@ -112,9 +114,16 @@ body {
 
 .stat-value {
   color: #ffffff;
-  font-size: 1.45rem;
+  font-size: 1.35rem;
   font-weight: 950;
   line-height: 1;
+}
+
+.option-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  margin-bottom: 16px;
 }
 
 .guess-form {
@@ -136,6 +145,23 @@ body {
   font-weight: 950;
   letter-spacing: 0.18em;
   text-align: center;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.keypad-button,
+.keypad-enter {
+  min-height: 58px;
+  font-size: 1.05rem;
+}
+
+.keypad-enter {
+  grid-column: span 2;
 }
 
 .guess-row {
@@ -160,8 +186,17 @@ body {
 .mark {
   width: 34px;
   height: 34px;
+  display: grid;
+  place-items: center;
   border-radius: 8px;
+  color: #06111a;
+  font-size: 1rem;
+  font-weight: 950;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.mark:not(.with-symbol) {
+  color: transparent;
 }
 
 .correct {
@@ -175,9 +210,16 @@ body {
 .wrong {
   border: 1px solid #334155;
   background: #0a0f1d;
+  color: #f8fafc;
+}
+
+.wrong:not(.with-symbol) {
+  color: transparent;
 }
 
 .result {
+  position: relative;
+  overflow: hidden;
   text-align: center;
 }
 
@@ -202,6 +244,46 @@ body {
   border-color: rgba(239, 68, 68, 0.42);
 }
 
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.confetti span {
+  position: absolute;
+  top: -20px;
+  left: calc(var(--i, 1) * 5%);
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--theme-secondary, #ffbf47);
+  animation: confettiFall 1.4s ease-in-out infinite;
+}
+
+.confetti span:nth-child(odd) {
+  background: var(--theme-primary, #27f5c7);
+}
+
+.confetti span:nth-child(1) { --i: 1; animation-delay: 0.05s; }
+.confetti span:nth-child(2) { --i: 2; animation-delay: 0.2s; }
+.confetti span:nth-child(3) { --i: 3; animation-delay: 0.35s; }
+.confetti span:nth-child(4) { --i: 4; animation-delay: 0.1s; }
+.confetti span:nth-child(5) { --i: 5; animation-delay: 0.28s; }
+.confetti span:nth-child(6) { --i: 6; animation-delay: 0.44s; }
+.confetti span:nth-child(7) { --i: 7; animation-delay: 0.16s; }
+.confetti span:nth-child(8) { --i: 8; animation-delay: 0.36s; }
+.confetti span:nth-child(9) { --i: 9; animation-delay: 0.22s; }
+.confetti span:nth-child(10) { --i: 10; animation-delay: 0.48s; }
+.confetti span:nth-child(11) { --i: 11; animation-delay: 0.08s; }
+.confetti span:nth-child(12) { --i: 12; animation-delay: 0.4s; }
+.confetti span:nth-child(13) { --i: 13; animation-delay: 0.18s; }
+.confetti span:nth-child(14) { --i: 14; animation-delay: 0.32s; }
+.confetti span:nth-child(15) { --i: 15; animation-delay: 0.52s; }
+.confetti span:nth-child(16) { --i: 16; animation-delay: 0.24s; }
+.confetti span:nth-child(17) { --i: 17; animation-delay: 0.12s; }
+.confetti span:nth-child(18) { --i: 18; animation-delay: 0.46s; }
+
 .leader-row {
   display: grid;
   grid-template-columns: 48px 1fr auto;
@@ -214,10 +296,27 @@ body {
   background: rgba(255, 255, 255, 0.045);
 }
 
+.leader-row.is-player {
+  border-color: color-mix(in srgb, var(--theme-primary, #27f5c7) 58%, transparent);
+  background: color-mix(in srgb, var(--theme-primary, #27f5c7) 12%, transparent);
+}
+
 .leader-rank,
 .leader-score {
-  color: #27f5c7;
+  color: var(--theme-primary, #27f5c7);
   font-weight: 950;
+}
+
+.rank-1 {
+  color: #ffd166;
+}
+
+.rank-2 {
+  color: #dbeafe;
+}
+
+.rank-3 {
+  color: #f59e0b;
 }
 
 .leader-name {
@@ -233,7 +332,41 @@ body {
 }
 
 .leader-score.solved {
-  color: #ffbf47;
+  color: var(--theme-secondary, #ffbf47);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stats-grid div {
+  min-height: 86px;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.stats-grid strong {
+  color: #ffffff;
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.stats-grid span {
+  color: #aeb9cc;
+  font-size: 0.8rem;
+}
+
+.distribution-row {
+  display: grid;
+  grid-template-columns: 20px 1fr 28px;
+  align-items: center;
+  gap: 10px;
 }
 
 @keyframes codeDrift {
@@ -245,9 +378,27 @@ body {
   }
 }
 
+@keyframes confettiFall {
+  from {
+    opacity: 0;
+    transform: translateY(0) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(300px) rotate(260deg);
+  }
+}
+
 @media (min-width: 620px) {
   .app {
     padding-top: 34px;
+  }
+
+  .option-row {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .guess-form {
@@ -256,6 +407,6 @@ body {
 
   .hero-card {
     min-height: 360px;
-    padding: 42px;
+    padding: 36px;
   }
 }
