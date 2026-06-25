@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import BackspaceRounded from '@mui/icons-material/BackspaceRounded'
 import BarChartRounded from '@mui/icons-material/BarChartRounded'
 import HelpOutlineRounded from '@mui/icons-material/HelpOutlineRounded'
 import KeyboardReturnRounded from '@mui/icons-material/KeyboardReturnRounded'
+import MusicNoteRounded from '@mui/icons-material/MusicNoteRounded'
+import MusicOffRounded from '@mui/icons-material/MusicOffRounded'
 import SendRounded from '@mui/icons-material/SendRounded'
 import ShareRounded from '@mui/icons-material/ShareRounded'
 import {
@@ -56,6 +58,7 @@ const MAX_ATTEMPTS = 6
 const STATS_KEY = 'daily-code-player-stats'
 const HARD_MODE_KEY = 'daily-code-hard-mode'
 const COLOR_ASSIST_KEY = 'daily-code-color-assist'
+const MUSIC_KEY = 'daily-code-music'
 const SCORE_SUBMIT_PREFIX = 'daily-code-score-submitted:'
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
 
@@ -78,7 +81,7 @@ const theme = createTheme({
   },
   typography: {
     fontFamily:
-      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      '"Space Grotesk Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     h1: {
       fontWeight: 950,
       letterSpacing: 0,
@@ -633,6 +636,11 @@ function App() {
   const puzzle = useMemo(() => getDailyPuzzle(), [])
   const playerId = useMemo(() => getPlayerId(), [])
   const themeColors = useMemo(() => getDailyTheme(puzzle.puzzleNumber), [puzzle.puzzleNumber])
+  const musicRef = useRef<{
+    context: AudioContext
+    intervalId: number
+    masterGain: GainNode
+  } | null>(null)
   const [storedResult, setStoredResult] = useState<DailyResult | null>(() =>
     loadStoredResult(puzzle.dateKey),
   )
@@ -657,6 +665,7 @@ function App() {
   )
   const [hardMode, setHardMode] = useState(() => readBoolean(HARD_MODE_KEY))
   const [colorAssist, setColorAssist] = useState(() => readBoolean(COLOR_ASSIST_KEY))
+  const [isMusicOn, setIsMusicOn] = useState(() => readBoolean(MUSIC_KEY, true))
   const [countdown, setCountdown] = useState(getCountdownToTomorrow)
   const [isStatsOpen, setIsStatsOpen] = useState(false)
   const [isAboutOpen, setIsAboutOpen] = useState(false)
@@ -672,6 +681,21 @@ function App() {
 
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    return () => {
+      stopMusic()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isMusicOn) {
+      startMusic()
+    }
+    // Music auto-start should react only to the stored on/off preference.
+    // The start function itself is stable enough through refs for this use.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMusicOn])
 
   useEffect(() => {
     if (!isLeaderboardConfigured) {
@@ -772,6 +796,118 @@ function App() {
     localStorage.setItem(COLOR_ASSIST_KEY, String(nextValue))
   }
 
+  function playSynthNote(
+    context: AudioContext,
+    masterGain: GainNode,
+    frequency: number,
+    startTime: number,
+    duration = 0.62,
+  ) {
+    const oscillator = context.createOscillator()
+    const shimmer = context.createOscillator()
+    const noteGain = context.createGain()
+    const filter = context.createBiquadFilter()
+
+    oscillator.type = 'sine'
+    shimmer.type = 'triangle'
+    oscillator.frequency.setValueAtTime(frequency, startTime)
+    shimmer.frequency.setValueAtTime(frequency * 2.01, startTime)
+    filter.type = 'lowpass'
+    filter.frequency.setValueAtTime(920, startTime)
+    noteGain.gain.setValueAtTime(0.0001, startTime)
+    noteGain.gain.exponentialRampToValueAtTime(0.09, startTime + 0.08)
+    noteGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration)
+
+    oscillator.connect(filter)
+    shimmer.connect(filter)
+    filter.connect(noteGain)
+    noteGain.connect(masterGain)
+    oscillator.start(startTime)
+    shimmer.start(startTime + 0.02)
+    oscillator.stop(startTime + duration + 0.04)
+    shimmer.stop(startTime + duration * 0.72)
+  }
+
+  function startMusic() {
+    if (musicRef.current) {
+      return true
+    }
+
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext
+
+    if (!AudioContextClass) {
+      setError('Music is not supported in this browser.')
+      return false
+    }
+
+    const context = new AudioContextClass()
+    const masterGain = context.createGain()
+    const notes = [261.63, 329.63, 392, 493.88, 440, 349.23, 293.66, 392]
+    let step = 0
+
+    masterGain.gain.value = 0.055
+    masterGain.connect(context.destination)
+
+    const playStep = () => {
+      const now = context.currentTime
+      const note = notes[step % notes.length]
+      playSynthNote(context, masterGain, note, now)
+      playSynthNote(context, masterGain, note / 2, now + 0.08, 0.9)
+      step += 1
+    }
+
+    playStep()
+    const intervalId = window.setInterval(playStep, 780)
+    musicRef.current = { context, intervalId, masterGain }
+    void context.resume()
+
+    if (context.state === 'suspended') {
+      const unlockMusic = () => {
+        void context.resume()
+        window.removeEventListener('pointerdown', unlockMusic)
+        window.removeEventListener('keydown', unlockMusic)
+        window.removeEventListener('touchstart', unlockMusic)
+      }
+
+      window.addEventListener('pointerdown', unlockMusic, { once: true })
+      window.addEventListener('keydown', unlockMusic, { once: true })
+      window.addEventListener('touchstart', unlockMusic, { once: true })
+    }
+
+    return true
+  }
+
+  function stopMusic() {
+    if (!musicRef.current) {
+      return
+    }
+
+    window.clearInterval(musicRef.current.intervalId)
+    musicRef.current.masterGain.gain.exponentialRampToValueAtTime(
+      0.0001,
+      musicRef.current.context.currentTime + 0.1,
+    )
+    void musicRef.current.context.close()
+    musicRef.current = null
+  }
+
+  function toggleMusic() {
+    if (isMusicOn) {
+      stopMusic()
+      setIsMusicOn(false)
+      localStorage.setItem(MUSIC_KEY, 'false')
+      return
+    }
+
+    if (startMusic()) {
+      setIsMusicOn(true)
+      localStorage.setItem(MUSIC_KEY, 'true')
+    }
+  }
+
   async function shareResult() {
     if (!storedResult) {
       return
@@ -843,6 +979,13 @@ function App() {
             <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between' }}>
               <Chip label="Once per day" color="primary" size="small" />
               <Stack direction="row" spacing={1}>
+                <IconButton
+                  aria-label={isMusicOn ? 'Turn music off' : 'Turn music on'}
+                  className={isMusicOn ? 'music-button is-playing' : 'music-button'}
+                  onClick={toggleMusic}
+                >
+                  {isMusicOn ? <MusicNoteRounded /> : <MusicOffRounded />}
+                </IconButton>
                 <IconButton aria-label="Open stats" onClick={() => setIsStatsOpen(true)}>
                   <BarChartRounded />
                 </IconButton>
