@@ -58,9 +58,10 @@ const MAX_ATTEMPTS = 6
 const STATS_KEY = 'daily-code-player-stats'
 const HARD_MODE_KEY = 'daily-code-hard-mode'
 const COLOR_ASSIST_KEY = 'daily-code-color-assist'
-const MUSIC_KEY = 'daily-code-music'
 const SCORE_SUBMIT_PREFIX = 'daily-code-score-submitted:'
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
+const MUSIC_SRC = '/game-music.mp3'
+const MUSIC_VOLUME = 0.16
 
 const theme = createTheme({
   palette: {
@@ -636,11 +637,8 @@ function App() {
   const puzzle = useMemo(() => getDailyPuzzle(), [])
   const playerId = useMemo(() => getPlayerId(), [])
   const themeColors = useMemo(() => getDailyTheme(puzzle.puzzleNumber), [puzzle.puzzleNumber])
-  const musicRef = useRef<{
-    context: AudioContext
-    intervalId: number
-    masterGain: GainNode
-  } | null>(null)
+  const musicRef = useRef<HTMLAudioElement | null>(null)
+  const musicUnlockCleanupRef = useRef<(() => void) | null>(null)
   const [storedResult, setStoredResult] = useState<DailyResult | null>(() =>
     loadStoredResult(puzzle.dateKey),
   )
@@ -665,7 +663,7 @@ function App() {
   )
   const [hardMode, setHardMode] = useState(() => readBoolean(HARD_MODE_KEY))
   const [colorAssist, setColorAssist] = useState(() => readBoolean(COLOR_ASSIST_KEY))
-  const [isMusicOn, setIsMusicOn] = useState(() => readBoolean(MUSIC_KEY, true))
+  const [isMusicOn, setIsMusicOn] = useState(true)
   const [countdown, setCountdown] = useState(getCountdownToTomorrow)
   const [isStatsOpen, setIsStatsOpen] = useState(false)
   const [isAboutOpen, setIsAboutOpen] = useState(false)
@@ -692,9 +690,6 @@ function App() {
     if (isMusicOn) {
       startMusic()
     }
-    // Music auto-start should react only to the stored on/off preference.
-    // The start function itself is stable enough through refs for this use.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMusicOn])
 
   useEffect(() => {
@@ -796,101 +791,66 @@ function App() {
     localStorage.setItem(COLOR_ASSIST_KEY, String(nextValue))
   }
 
-  function playSynthNote(
-    context: AudioContext,
-    masterGain: GainNode,
-    frequency: number,
-    startTime: number,
-    duration = 0.62,
-  ) {
-    const oscillator = context.createOscillator()
-    const shimmer = context.createOscillator()
-    const noteGain = context.createGain()
-    const filter = context.createBiquadFilter()
-
-    oscillator.type = 'sine'
-    shimmer.type = 'triangle'
-    oscillator.frequency.setValueAtTime(frequency, startTime)
-    shimmer.frequency.setValueAtTime(frequency * 2.01, startTime)
-    filter.type = 'lowpass'
-    filter.frequency.setValueAtTime(920, startTime)
-    noteGain.gain.setValueAtTime(0.0001, startTime)
-    noteGain.gain.exponentialRampToValueAtTime(0.09, startTime + 0.08)
-    noteGain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration)
-
-    oscillator.connect(filter)
-    shimmer.connect(filter)
-    filter.connect(noteGain)
-    noteGain.connect(masterGain)
-    oscillator.start(startTime)
-    shimmer.start(startTime + 0.02)
-    oscillator.stop(startTime + duration + 0.04)
-    shimmer.stop(startTime + duration * 0.72)
-  }
-
   function startMusic() {
     if (musicRef.current) {
+      musicRef.current.volume = MUSIC_VOLUME
+      void musicRef.current.play()
       return true
     }
 
-    const AudioContextClass =
-      window.AudioContext ||
-      (window as Window & { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext
+    musicUnlockCleanupRef.current?.()
+    musicUnlockCleanupRef.current = null
 
-    if (!AudioContextClass) {
-      setError('Music is not supported in this browser.')
-      return false
-    }
+    const audio = new Audio(MUSIC_SRC)
+    audio.loop = true
+    audio.volume = MUSIC_VOLUME
+    audio.currentTime = 0
+    musicRef.current = audio
 
-    const context = new AudioContextClass()
-    const masterGain = context.createGain()
-    const notes = [261.63, 329.63, 392, 493.88, 440, 349.23, 293.66, 392]
-    let step = 0
+    const playPromise = audio.play()
 
-    masterGain.gain.value = 0.055
-    masterGain.connect(context.destination)
+    if (playPromise) {
+      playPromise.catch(() => {
+        if (!musicRef.current || musicRef.current !== audio) {
+          return
+        }
 
-    const playStep = () => {
-      const now = context.currentTime
-      const note = notes[step % notes.length]
-      playSynthNote(context, masterGain, note, now)
-      playSynthNote(context, masterGain, note / 2, now + 0.08, 0.9)
-      step += 1
-    }
+        const unlockMusic = () => {
+          if (!musicRef.current || musicRef.current !== audio) {
+            return
+          }
 
-    playStep()
-    const intervalId = window.setInterval(playStep, 780)
-    musicRef.current = { context, intervalId, masterGain }
-    void context.resume()
+          audio.currentTime = 0
+          audio.volume = MUSIC_VOLUME
+          void audio.play()
+          musicUnlockCleanupRef.current?.()
+          musicUnlockCleanupRef.current = null
+        }
 
-    if (context.state === 'suspended') {
-      const unlockMusic = () => {
-        void context.resume()
-        window.removeEventListener('pointerdown', unlockMusic)
-        window.removeEventListener('keydown', unlockMusic)
-        window.removeEventListener('touchstart', unlockMusic)
-      }
-
-      window.addEventListener('pointerdown', unlockMusic, { once: true })
-      window.addEventListener('keydown', unlockMusic, { once: true })
-      window.addEventListener('touchstart', unlockMusic, { once: true })
+        window.addEventListener('pointerdown', unlockMusic, { once: true })
+        window.addEventListener('keydown', unlockMusic, { once: true })
+        window.addEventListener('touchstart', unlockMusic, { once: true })
+        musicUnlockCleanupRef.current = () => {
+          window.removeEventListener('pointerdown', unlockMusic)
+          window.removeEventListener('keydown', unlockMusic)
+          window.removeEventListener('touchstart', unlockMusic)
+        }
+      })
     }
 
     return true
   }
 
   function stopMusic() {
+    musicUnlockCleanupRef.current?.()
+    musicUnlockCleanupRef.current = null
+
     if (!musicRef.current) {
       return
     }
 
-    window.clearInterval(musicRef.current.intervalId)
-    musicRef.current.masterGain.gain.exponentialRampToValueAtTime(
-      0.0001,
-      musicRef.current.context.currentTime + 0.1,
-    )
-    void musicRef.current.context.close()
+    musicRef.current.pause()
+    musicRef.current.currentTime = 0
     musicRef.current = null
   }
 
@@ -898,13 +858,12 @@ function App() {
     if (isMusicOn) {
       stopMusic()
       setIsMusicOn(false)
-      localStorage.setItem(MUSIC_KEY, 'false')
       return
     }
 
+    stopMusic()
     if (startMusic()) {
       setIsMusicOn(true)
-      localStorage.setItem(MUSIC_KEY, 'true')
     }
   }
 

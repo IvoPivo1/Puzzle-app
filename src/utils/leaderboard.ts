@@ -74,14 +74,32 @@ export async function submitLeaderboardScore(
     throw new Error('Supabase is not configured yet.')
   }
 
-  const { error } = await supabase.from('leaderboard').insert({
+  const score = {
     player_name: playerName.trim().slice(0, 24),
-    player_id: playerId,
     puzzle_date: result.dateKey,
     puzzle_number: puzzleNumber,
     attempts: result.attempts,
     solved: result.solved,
+  }
+  const { error } = await supabase.from('leaderboard').insert({
+    ...score,
+    player_id: playerId,
   })
+
+  if (
+    error &&
+    error.message.toLowerCase().includes("'player_id' column")
+  ) {
+    const { error: fallbackError } = await supabase
+      .from('leaderboard')
+      .insert(score)
+
+    if (fallbackError) {
+      throw new Error(fallbackError.message)
+    }
+
+    return
+  }
 
   if (error) {
     throw new Error(error.message)
